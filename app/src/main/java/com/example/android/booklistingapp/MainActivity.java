@@ -11,11 +11,15 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static android.view.View.GONE;
+import static android.view.View.VISIBLE;
 
 public class MainActivity extends AppCompatActivity
         implements LoaderManager.LoaderCallbacks<List<Book>>, View.OnClickListener {
@@ -33,7 +37,11 @@ public class MainActivity extends AppCompatActivity
 
     private TextView mEmptyStateTextView;
 
+    private ProgressBar mProgressBar;
+
     private ListView mBookListView;
+
+    private boolean mInitialLoad = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,11 +50,15 @@ public class MainActivity extends AppCompatActivity
 
         mBookListView = (ListView) findViewById(R.id.list);
 
-        mEmptyStateTextView = (TextView) findViewById(R.id.empty_view);
-
         mAdapter = new BookAdapter(this, new ArrayList<Book>());
 
         mBookListView.setAdapter(mAdapter);
+
+        mEmptyStateTextView = (TextView) findViewById(R.id.empty_view);
+        mEmptyStateTextView.setVisibility(GONE);
+
+        mProgressBar = (ProgressBar) findViewById(R.id.loading_indicator);
+        mProgressBar.setVisibility(GONE);
 
         ConnectivityManager connMgr = (ConnectivityManager)
                 getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -56,9 +68,8 @@ public class MainActivity extends AppCompatActivity
         if (networkInfo != null && networkInfo.isConnected()) {
             getLoaderManager().initLoader(BOOK_LOADER_ID, null, this);
         } else {
-            View loadingIndicator = findViewById(R.id.loading_indicator);
-            loadingIndicator.setVisibility(View.GONE);
             mEmptyStateTextView.setText("No internet connection");
+            mEmptyStateTextView.setVisibility(VISIBLE);
         }
 
         Button button = (Button) findViewById(R.id.search_btn);
@@ -79,12 +90,13 @@ public class MainActivity extends AppCompatActivity
             NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
 
             if (networkInfo != null && networkInfo.isConnected()) {
+                mProgressBar.setVisibility(VISIBLE);
+                mEmptyStateTextView.setVisibility(GONE);
                 getLoaderManager().restartLoader(BOOK_LOADER_ID, null, this);
             } else {
-                View loadingIndicator = findViewById(R.id.loading_indicator);
-                loadingIndicator.setVisibility(View.GONE);
-                mBookListView.setVisibility(View.GONE);
+                mBookListView.setVisibility(GONE);
                 mEmptyStateTextView.setText("No internet connection");
+                mEmptyStateTextView.setVisibility(VISIBLE);
             }
         }
     }
@@ -98,16 +110,19 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onLoadFinished
             (Loader<List<Book>> loader, List<Book> books) {
-        View loadingIndicator = findViewById(R.id.loading_indicator);
-        loadingIndicator.setVisibility(View.GONE);
-        mEmptyStateTextView.setVisibility(View.GONE);
-
-
-        mAdapter.clear();
+        mProgressBar.setVisibility(GONE);
+        mBookListView.setVisibility(VISIBLE);
 
         if (books != null && !books.isEmpty()) {
             mAdapter.addAll(books);
+        }   else {
+            if (mInitialLoad) {
+                mEmptyStateTextView.setText("No results found. Please try another search term.");
+                mEmptyStateTextView.setVisibility(VISIBLE);
+            }
         }
+
+        mInitialLoad = true;
     }
 
     @Override
